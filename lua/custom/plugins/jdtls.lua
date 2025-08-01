@@ -76,25 +76,21 @@ return {
       -- Find the extra bundles that should be passed on the jdtls command-line
       -- if nvim-dap is enabled with java debug/test.
       local bundles = {} ---@type string[]
-      -- if opts.dap and LazyVim.has 'nvim-dap' and mason_registry.is_installed 'java-debug-adapter' then
       --   local java_dbg_pkg = mason_registry.get_package 'java-debug-adapter'
-      --   local java_dbg_path = java_dbg_pkg:get_install_path()
-      --   local jar_patterns = {
-      --     java_dbg_path .. '/extension/server/com.microsoft.java.debug.plugin-*.jar',
-      --   }
+      local java_dbg_path = vim.fn.expand '$MASON/packages/java-debug-adapter'
+      local jar_patterns = {
+        java_dbg_path .. '/extension/server/com.microsoft.java.debug.plugin-*.jar',
+      }
       --   -- java-test also depends on java-debug-adapter.
-      --   if opts.test and mason_registry.is_installed 'java-test' then
-      --     local java_test_pkg = mason_registry.get_package 'java-test'
-      --     local java_test_path = java_test_pkg:get_install_path()
-      --     vim.list_extend(jar_patterns, {
-      --       java_test_path .. '/extension/server/*.jar',
-      --     })
-      --   end
-      --   for _, jar_pattern in ipairs(jar_patterns) do
-      --     for _, bundle in ipairs(vim.split(vim.fn.glob(jar_pattern), '\n')) do
-      --       table.insert(bundles, bundle)
-      --     end
-      --   end
+      local java_test_path = vim.fn.expand '$MASON/packages/java-test'
+      vim.list_extend(jar_patterns, {
+        java_test_path .. '/extension/server/*.jar',
+      })
+      for _, jar_pattern in ipairs(jar_patterns) do
+        for _, bundle in ipairs(vim.split(vim.fn.glob(jar_pattern), '\n')) do
+          table.insert(bundles, bundle)
+        end
+      end
       -- end
       local function attach_jdtls()
         local fname = vim.api.nvim_buf_get_name(0)
@@ -166,6 +162,39 @@ return {
               },
             }
 
+            require('jdtls').setup_dap(opts.dap)
+            if opts.dap_main then
+              require('jdtls.dap').setup_dap_main_class_configs(opts.dap_main)
+            end
+
+            if opts.test then
+              wk.add {
+                {
+                  mode = 'n',
+                  buffer = args.buf,
+                  { '<leader>t', group = 'test' },
+                  {
+                    '<leader>tt',
+                    function()
+                      require('jdtls.dap').test_class {
+                        config_overrides = type(opts.test) ~= 'boolean' and opts.test.config_overrides or nil,
+                      }
+                    end,
+                    desc = 'Run All Test',
+                  },
+                  {
+                    '<leader>tr',
+                    function()
+                      require('jdtls.dap').test_nearest_method {
+                        config_overrides = type(opts.test) ~= 'boolean' and opts.test.config_overrides or nil,
+                      }
+                    end,
+                    desc = 'Run Nearest Test',
+                  },
+                  { '<leader>tT', require('jdtls.dap').pick_test, desc = 'Run Test' },
+                },
+              }
+            end
             if opts.on_attach then
               opts.on_attach(args)
             end
